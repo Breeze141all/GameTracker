@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller & Build artifacts
+build/
+dist/
+Output/
+*.spec
+
+# System & Temp
+.agents/
+.idea/
+.vscode/
+*.tmp
+*.bak

@@ -1,0 +1,70 @@
+name: Build and Release Windows Installer
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Run verification test suite
+        run: |
+          python -m unittest discover tests
+
+      - name: Build standalone executables with PyInstaller
+        run: |
+          pyinstaller --onefile --noconsole --name GameTrackerService --clean run_service.py
+          pyinstaller --onefile --console --name gametracker --clean run_cli.py
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Compile Windows Setup Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Create Portable Zip Package
+        run: |
+          powershell Compress-Archive -Path dist\GameTrackerService.exe, dist\gametracker.exe, README.md -DestinationPath Output\GameTracker_v1.0.0_portable.zip
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameTracker-Windows-Binaries
+          path: |
+            Output/GameTracker_Setup_v*.exe
+            Output/GameTracker_*_portable.zip
+
+      - name: Publish GitHub Release (on tag or manual dispatch)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Output/GameTracker_Setup_v*.exe
+            Output/GameTracker_*_portable.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
